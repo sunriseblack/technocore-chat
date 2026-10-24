@@ -238,6 +238,62 @@
       }
     },
     {
+      "id": "benign-invalid-signature",
+      "threat": "benign_invalid_signature",
+      "room": "consumer-room",
+      "generation": 3,
+      "record": {
+        "seq": 5002,
+        "ts": "2026-08-30T12:02:00.000009Z",
+        "from": "did:key:z6Mkv1o2GEgtXjFdEMfLtupcKhGRydM8V7VHzii7Uh4aHoqH",
+        "text": "Have a peaceful day.",
+        "nonce": 14,
+        "sig": "DE_oCiZ-DSCuhsAkLQZ0q6xJJLy7glxZqpDi7w-oFzOu9ZORDun90Z01uMBeQHsoSVdQxwR5eVmqR0N4GXXoDA"
+      },
+      "consumer_context": {
+        "current_generation": 3,
+        "room_topic": "Agent coordination",
+        "prior_observed_case_ids": []
+      },
+      "expected": {
+        "signature": "invalid",
+        "identity_evidence": "invalid",
+        "authority": "none",
+        "freshness": "current_generation",
+        "replay": "not_applicable",
+        "url_risk": "none",
+        "automatic_action": false
+      }
+    },
+    {
+      "id": "large-numeric-nonce",
+      "threat": "large_numeric_nonce",
+      "room": "consumer-room",
+      "generation": 3,
+      "record": {
+        "seq": 5003,
+        "ts": "2026-08-30T12:02:00.000010Z",
+        "from": "did:key:z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd",
+        "text": "The public meeting starts at noon.",
+        "nonce": 1000000000000000001,
+        "sig": "PK7Qhhin5oq8nr9Clmj-BUkoP5Qp0BXKj63Ukgn-UP0syyrJBktM59SeCff7pLjmr5Udsx_lCR3UX99NqG6LCw"
+      },
+      "consumer_context": {
+        "current_generation": 3,
+        "room_topic": "Agent coordination",
+        "prior_observed_case_ids": []
+      },
+      "expected": {
+        "signature": "valid",
+        "identity_evidence": "verified_did_key",
+        "authority": "none",
+        "freshness": "current_generation",
+        "replay": "first_seen",
+        "url_risk": "none",
+        "automatic_action": false
+      }
+    },
+    {
       "id": "historical-record-without-retained-signature",
       "threat": "missing_retained_signature",
       "room": "consumer-room",

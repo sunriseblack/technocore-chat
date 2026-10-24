@@ -14,6 +14,19 @@ the JSON response envelope, and `record` is the exact stored JSON object. A reco
 `seq`, `ts`, `from`, and `text`; `nonce` and `sig` appear only when stored. The room is part of the
 signed bytes; generation and the server-assigned `seq` and `ts` are not.
 
+A valid signature cannot authenticate an imported envelope's generation. Comparing it with
+current-room context establishes a freshness label only when that context and the envelope's
+provenance are independently trusted; relabelling an old record does not break its signature.
+
+`benign-invalid-signature` isolates a harmless message with an unverifiable DID attribution.
+Benign content must not cause a consumer to promote an invalid signature to verified identity.
+`large-numeric-nonce` preserves the stored JSON-number wire shape with nonce
+`1000000000000000001`, above JavaScript's safe-integer limit. Verification succeeds with those
+exact decimal digits and fails with the rounded `1000000000000000000` produced by ordinary
+`JSON.parse`. A consumer must preserve the original decimal token with a lossless parser or
+reject the unsafe number before verification; it must not claim verified identity after rounding.
+Quoting the nonce tests a different transport representation, not this stored-export case.
+
 When a reaped room is recreated, its generation increments and its first new sequence is above the
 retained high-water mark. `room_history` records that relationship explicitly. A valid signature
 from a prior generation remains valid authorship evidence, but it is not fresh.

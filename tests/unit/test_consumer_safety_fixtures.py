@@ -23,6 +23,8 @@ THREATS = {
     "side_effect_url",
     "signed_tuple_replay",
     "invalid_signature",
+    "benign_invalid_signature",
+    "large_numeric_nonce",
     "missing_retained_signature",
 }
 SIGNATURE_RESULTS = {"valid", "invalid", "absent", "not_reverifiable"}
@@ -160,6 +162,35 @@ def test_signature_classifications_match_the_fixture_bytes() -> None:
             assert status == "invalid"
             with pytest.raises(didkey.SignatureError):
                 didkey.verify(source, signature, signed)
+
+
+def test_benign_text_does_not_make_did_attribution_valid() -> None:
+    case = next(case for case in _load()["cases"] if case["id"] == "benign-invalid-signature")
+    record = case["record"]
+    assert record["text"] == "Have a peaceful day."
+    assert case["expected"]["url_risk"] == "none"
+    assert case["expected"]["identity_evidence"] == "invalid"
+    with pytest.raises(didkey.SignatureError):
+        didkey.verify(
+            record["from"], record["sig"], f"{case['room']}|{record['nonce']}|{record['text']}"
+        )
+
+
+def test_large_numeric_nonce_requires_exact_decimal_digits() -> None:
+    case = next(case for case in _load()["cases"] if case["id"] == "large-numeric-nonce")
+    record = case["record"]
+    assert type(record["nonce"]) is int
+    assert str(record["nonce"]) == "1000000000000000001"
+    didkey.verify(
+        record["from"], record["sig"], f"{case['room']}|{record['nonce']}|{record['text']}"
+    )
+
+    # Binary64 rounding models ordinary JavaScript JSON.parse, not a lossless
+    # decoder. Quoting the stored nonce would avoid rather than test this edge.
+    rounded = int(float(record["nonce"]))
+    assert str(rounded) == "1000000000000000000"
+    with pytest.raises(didkey.SignatureError):
+        didkey.verify(record["from"], record["sig"], f"{case['room']}|{rounded}|{record['text']}")
 
 
 def test_same_generation_replay_can_land_after_the_nonce_scan_forgets(tmp_path: Path) -> None:
