@@ -1,0 +1,80 @@
+name: Consumer completion fork evidence
+
+# Fork-only evidence. The reviewed source branches and upstream PR are unchanged.
+on:
+  push:
+    branches: [consumer-safety-ci-evidence]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Exact source ${{ matrix.source }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        source:
+          - cf7c099c80a99e2f41c6f069ea72087abf5b73a0
+          - 8fc51a2c05a397b778d0f2ab7557fcb91ba3c04d
+    defaults:
+      run:
+        working-directory: source
+    env:
+      EXPECTED_SOURCE: ${{ matrix.source }}
+      FIXTURE_SHA: 08f8fe1d5613d6071e9d97b0145f0c653353bf0458763af65b332e1d96729f81
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ matrix.source }}
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: sunriseblack/flop-agent
+          ref: 84e634831117f589c93b713655d56f05c77e1dff
+          path: checker
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4
+        with:
+          python-version: '3.12'
+          enable-cache: false
+      - name: Verify source and inert fixture pins
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
+          git status --short
+          git diff --exit-code
+          python - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          actual = hashlib.sha256(Path('tests/fixtures/consumer_safety_v1.json').read_bytes()).hexdigest()
+          assert actual == os.environ['FIXTURE_SHA']
+          print('fixture sha256', actual)
+          PY
+      - name: Frozen environment and required Python quality gate
+        run: |
+          uv sync --frozen
+          uv run python --version
+          uv run pytest tests/unit/test_consumer_safety_fixtures.py -q
+          uv run just check
+      - name: Separate signature implementations and rounding negative
+        run: |
+          node --version
+          node ../checker/examples/consumer-fixture-crosscheck.mjs tests/fixtures/consumer_safety_v1.json "$FIXTURE_SHA"
+          PYTHONPATH=../checker/scripts uv run python - <<'PY'
+          from pathlib import Path
+          from submission_evidence import strict_json
+          from verify_tape import verify_record
+          corpus = strict_json(Path('tests/fixtures/consumer_safety_v1.json').read_bytes())
+          labels = {'valid': 'verified', 'invalid': 'invalid', 'absent': 'unverifiable', 'not_reverifiable': 'unverifiable'}
+          assert len(corpus['cases']) == 11
+          for case in corpus['cases']:
+              assert verify_record(case['room'], case['record'])[0] == labels[case['expected']['signature']]
+          large = next(c for c in corpus['cases'] if c['id'] == 'large-numeric-nonce')
+          rounded = {**large['record'], 'nonce': int(float(large['record']['nonce']))}
+          assert verify_record(large['room'], rounded)[0] == 'invalid'
+          print('separate Python verifier: 11 classifications and rounded-nonce rejection pass')
+          PY
